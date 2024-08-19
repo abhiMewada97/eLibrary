@@ -23,7 +23,7 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
             const error = createHttpError(400, "User already exist with this email id");
             return next(error);
         }
-    } catch (error) {
+    } catch {
         return next(createHttpError(500, "Error while getting user"));
     }
 
@@ -37,7 +37,7 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
             email,
             password: hashedPassword,
         });
-    } catch (error) {
+    } catch {
         return next(createHttpError(500, "Error while creating user"));
     }
 
@@ -50,9 +50,53 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
     
         // Response
         res.status(201).json({accessToken: token});
-    } catch (error) {
+    } catch {
         return next(createHttpError(500, "Error while signing user"));
     }
 };
 
-export { createUser };
+const loginUser = async (req: Request, res: Response, next: NextFunction) => {
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+        return next(createHttpError(400, "All fields are required"));
+    }
+
+    // Find user by email
+    let user;
+    try {
+        user = await userModel.findOne({ email });
+        if (!user) {
+            return next(createHttpError(404, "User not found"));
+        }
+    } catch {
+        return next(createHttpError(500, "Error while fetching user"));
+    }
+
+    // Compare passwords
+    let isMatch;
+    try {
+        isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return next(createHttpError(400, "Username or password incorrect!"));
+        }
+    } catch {
+        return next(createHttpError(500, "Error while comparing passwords"));
+    }
+
+    // Generate JWT token
+    try {
+        const token = sign({ sub: user._id }, config.jwtSecret as string, {
+            expiresIn: '7d',
+            algorithm: 'HS256',
+        });
+
+        // Respond with token
+        res.status(201).json({ accessToken: token });
+    } catch {
+        return next(createHttpError(500, "Error while generating token"));
+    }
+};
+
+export { createUser, loginUser };
