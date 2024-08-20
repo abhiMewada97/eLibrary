@@ -4,8 +4,9 @@ import path from "path";
 import createHttpError from "http-errors";
 import bookModel from "./bookModel";
 import fs from "node:fs";
+import { AuthRequest } from "../middlewares/authenticate";
+const createBook = async (req: AuthRequest, res: Response, next: NextFunction) => {
 
-const createBook = async (req: Request, res: Response, next: NextFunction) => {
     const { title, genre } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
@@ -52,6 +53,9 @@ const createBook = async (req: Request, res: Response, next: NextFunction) => {
         // Create a new book record in the database
         let newBook;
         try {
+
+            console.log("userId ", req.userId);
+
             newBook = await bookModel.create({
                 title,
                 genre,
