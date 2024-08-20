@@ -192,5 +192,58 @@ const getSingleBook = async ( req: AuthRequest, res: Response, next: NextFunctio
     }
 };
 
+const deleteBook = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const bookId = req.params.bookId;
 
-export { createBook, updateBook, listBooks, getSingleBook };
+        const book = await bookModel.findOne({ _id: bookId });
+
+        if (!book) {
+            return next(createHttpError(404, "Book not found"));
+        }
+
+        // Check access
+        if (book.auther.toString() !== req.userId) {
+            return next(createHttpError(403, "You can not delete others book."));
+        }
+
+        const coverFileSplits = book.coverImage.split("/");
+        const coverImagePublicId = coverFileSplits.at(-2) + "/" + coverFileSplits.at(-1)?.split(".").at(-2);
+
+        const bookFileSplits = book.file.split("/");
+        const bookFilePublicId = bookFileSplits.at(-2) + "/" + bookFileSplits.at(-1);
+        console.log("bookFilePublicId", bookFilePublicId);
+
+        try {
+            await cloudinary.uploader.destroy(coverImagePublicId);
+        } catch (error) {
+            console.error("Error deleting cover image:", error);
+            return next(createHttpError(500, "Failed to delete cover image."));
+        }
+
+        try {
+            await cloudinary.uploader.destroy(bookFilePublicId, {
+                resource_type: "raw",
+            });
+        } catch (error) {
+            console.error("Error deleting book file:", error);
+            return next(createHttpError(500, "Failed to delete book file."));
+        }
+
+        try {
+            await bookModel.deleteOne({ _id: bookId });
+        } catch (error) {
+            console.error("Error deleting book from database:", error);
+            return next(createHttpError(500, "Failed to delete book from database."));
+        }
+
+        return res.sendStatus(204);
+    } catch (error) {
+        console.error("Unexpected error:", error);
+        return next(createHttpError(500, "An unexpected error occurred during delete"));
+    }
+};
+
+
+
+export { createBook, updateBook, listBooks, getSingleBook, deleteBook };
